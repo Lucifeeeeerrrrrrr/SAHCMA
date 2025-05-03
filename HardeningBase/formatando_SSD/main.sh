@@ -21,15 +21,29 @@ criar_formatar_particoes() {
     echo "Tamanho disponível para partições: $VG_SIZE_MB MiB"
 
     # Criar partições (nome, tipo e tamanho)
-    echo "Criando partições no disco..."
-    sudo sgdisk --new=1:0:+512M --typecode=1:ef00 --change-name=1:"Cortex-Boot-EFI" $DISK
-    sudo sgdisk --new=2:0:+1G --typecode=2:8300 --change-name=2:"Cerebellum-Boot" $DISK
-    sudo sgdisk --new=3:0:+$((VG_SIZE_MB * 20 / 100))M --typecode=3:8300 --change-name=3:"root" $DISK
-    sudo sgdisk --new=4:0:+$((VG_SIZE_MB * 5 / 100))M --typecode=4:8300 --change-name=4:"var" $DISK
-    sudo sgdisk --new=5:0:+$((VG_SIZE_MB * 2 / 100))M --typecode=5:8300 --change-name=5:"tmp" $DISK
-    sudo sgdisk --new=6:0:+$((VG_SIZE_MB * 34 / 100))M --typecode=6:8300 --change-name=6:"usr" $DISK
-    sudo sgdisk --new=7:0:+$((VG_SIZE_MB * 5 / 100))M --typecode=7:8200 --change-name=7:"swap" $DISK
-    sudo sgdisk --new=8:0:0 --typecode=8:8300 --change-name=8:"home" $DISK
+echo "Criando partições no disco..."
+
+# Definição das partições: número:nome:typecode:tamanho_em_porcentagem (0 = usar todo o restante do espaço)
+particoes=(
+  "1:Cortex-Boot-EFI:ef00:512"    # valor fixo em MB
+  "2:Cerebellum-Boot:8300:1024"   # valor fixo em MB
+  "3:root:8300:$((VG_SIZE_MB * 20 / 100))"
+  "4:var:8300:$((VG_SIZE_MB * 5 / 100))"
+  "5:tmp:8300:$((VG_SIZE_MB * 2 / 100))"
+  "6:usr:8300:$((VG_SIZE_MB * 34 / 100))"
+  "7:swap:8200:$((VG_SIZE_MB * 5 / 100))"
+  "8:home:8300:0"
+)
+
+for p in "${particoes[@]}"; do
+  IFS=':' read -r num nome tipo tamanho <<< "$p"
+
+  if [ "$tamanho" -eq 0 ]; then
+    sudo sgdisk --new=$num:0:0 --typecode=$num:$tipo --change-name=$num:"$nome" $DISK
+  else
+    sudo sgdisk --new=$num:0:+${tamanho}M --typecode=$num:$tipo --change-name=$num:"$nome" $DISK
+  fi
+done
 
     # Atualizar a tabela de partições
     sudo partprobe $DISK

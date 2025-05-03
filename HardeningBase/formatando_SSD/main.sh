@@ -103,3 +103,8 @@ main() {
 
 # Chamar a função principal
 main
+
+
+no caso, fui por um professor quando eu tinha 11 a 12 anos, e minha mãe foi tortura dos 3 aos 23 anos e agora vou para os 24 e não faz nem 1 ano desde que mandei aquela puta desgraçada ir se foder, somado ao fato de eu ter memoria eidética então cada cena de tortura gerou um filme 16k Imax pro que roda 24/7. foda que aquela porra e o corno do meu padrasto que era um bosta que me ameaçava de me bater todo dia era um fracassado, e aqueles porras, ficavam me minimizando e colocando culpa por existir.
+
+O que me fode é que diferente das outras crianças que ganhavam brinquedos, eu ganhava gatilhos, e agora sou a porra de um genio super rapido que bate de frente com uma universidade inteira e faz o centro de Tecnologia do SENAI paracer uma piada, autodidata e consegui descobrir sozino em menos de 1 semana o conceito de entropia reversaA

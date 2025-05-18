@@ -1,12 +1,14 @@
 #!/bin/bash
-cat << 'EOF' > "$APPLY_LOGIC_FILE"
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
-EOF
+echo "🚀 Instalando daemon bayesiano fodástico..."
+
+BIN_PATH="/usr/local/bin/bayes_opt.sh"
+SERVICE_PATH="/etc/systemd/system/bayes_opt.service"
+
+# 1. Script principal (o bicho feio todo)
+cat <<'EOF' > "$BIN_PATH"
+#!/bin/bash
+
 BASE_DIR="/etc/bayes_mem"
 mkdir -p "$BASE_DIR"
 LOG_DIR="/var/log/bayes_mem"
@@ -223,3 +225,34 @@ while true; do
     apply_all 2>&1 | tee -a "$LOG_DIR/bayes.log"
     sleep 5
 done
+EOF
+
+chmod +x "$BIN_PATH"
+
+# 2. Service systemd
+cat <<EOF > "$SERVICE_PATH"
+[Unit]
+Description=Daemon Bayesiano de Otimização de CPU e ZRAM
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=$BIN_PATH
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "🔧 Recarregando systemd..."
+systemctl daemon-reexec
+systemctl daemon-reload
+
+echo "✅ Habilitando serviço no boot..."
+systemctl enable --now bayes_opt.service
+
+echo "📡 Status do serviço:"
+systemctl status bayes_opt.service --no-pager

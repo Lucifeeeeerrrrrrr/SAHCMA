@@ -24,9 +24,9 @@ CORES_TOTAL=$(nproc --all)
 
 init_policies() {
     HOLISTIC_POLICIES["000"]="ondemand $((MAX_TDP * 40 / 100)) $((MAX_TDP * 20 / 100)) $((CORES_TOTAL / 3)) lzo-rle"
-    HOLISTIC_POLICIES["020"]="ondemand $((MAX_TDP * 45 / 100)) $((MAX_TDP * 25 / 100)) $((CORES_TOTAL / 3)) lzo"
-    HOLISTIC_POLICIES["040"]="ondemand $((MAX_TDP * 55 / 100)) $((MAX_TDP * 35 / 100)) $((CORES_TOTAL / 2)) lz4"
-    HOLISTIC_POLICIES["060"]="performance $((MAX_TDP * 70 / 100)) $((MAX_TDP * 50 / 100)) $((CORES_TOTAL * 2 / 3)) lz4hc"
+    HOLISTIC_POLICIES["020"]="userspace $((MAX_TDP * 45 / 100)) $((MAX_TDP * 25 / 100)) $((CORES_TOTAL / 3)) lzo"
+    HOLISTIC_POLICIES["040"]="userspace $((MAX_TDP * 55 / 100)) $((MAX_TDP * 35 / 100)) $((CORES_TOTAL / 2)) lz4"
+    HOLISTIC_POLICIES["060"]="userspace $((MAX_TDP * 70 / 100)) $((MAX_TDP * 50 / 100)) $((CORES_TOTAL * 2 / 3)) lz4hc"
     HOLISTIC_POLICIES["080"]="performance $((MAX_TDP * 85 / 100)) $((MAX_TDP * 60 / 100)) $((CORES_TOTAL * 3 / 4)) zstd"
     HOLISTIC_POLICIES["100"]="performance $((MAX_TDP)) $((MAX_TDP * 70 / 100)) $CORES_TOTAL deflate"
 }
@@ -45,15 +45,9 @@ determine_policy_key_from_avg() {
 apply_tdp_limit() {
     local target_max="$1"
     local target_min="$2"
-    local last_power_file="${BASE_DIR}/last_power"
-    local cooldown_file="${BASE_DIR}/power_cooldown"
-
     echo "⚡ Aplicando TDP: MIN=${target_min}W | MAX=${target_max}W"
     echo $((target_min * 1000000)) > /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null
     echo $((target_max * 1000000)) > /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null
-
-    echo "$target_min $target_max" > "$last_power_file"
-    touch "$cooldown_file"
 }
 
 apply_cpu_governor() {
@@ -63,37 +57,46 @@ apply_cpu_governor() {
     local last_gov="none"
 
     [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")
-
     echo "🎛️  Governor: Atual=${last_gov} | Novo=${cpu_gov}"
 
     if [[ "$cpu_gov" != "$last_gov" ]] && \
        [[ ! -f "$cooldown_file" || $(($(date +%s) - $(date -r "$cooldown_file" +%s))) -ge 2 ]]; then
         echo "  🔧 Alterando governor..."
-        for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-            echo "$cpu_gov" | tee "$cpu" > /dev/null
+        for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+            echo "$cpu_gov" | tee "$cpu/cpufreq/scaling_governor" > /dev/null
         done
         echo "$cpu_gov" > "$last_gov_file"
         touch "$cooldown_file"
     else
         echo "  ⏳ Cooldown governor ativo"
     fi
+
+    # Userspace = frequência manual
+    if [[ "$cpu_gov" == "userspace" ]]; then
+        local freq_file="${BASE_DIR}/last_userspace_freq"
+        local target_freq=1200000  # fallback
+        case "$policy_key" in
+            "020") target_freq=800000 ;;
+            "040") target_freq=1200000 ;;
+            "060") target_freq=1600000 ;;
+        esac
+        echo "⚙️  Userspace freq fixa: ${target_freq} KHz"
+        for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+            echo "$target_freq" | tee "$cpu/cpufreq/scaling_setspeed" > /dev/null
+        done
+        echo "$target_freq" > "$freq_file"
+    fi
 }
 
 apply_turbo_boost() {
     local gov="$1"
     local boost_path="/sys/devices/system/cpu/cpufreq/boost"
-    local boost_file="${BASE_DIR}/last_turbo"
-    local last="none"
-    [[ -f "$boost_file" ]] && last=$(cat "$boost_file")
-
     if [[ -f "$boost_path" ]]; then
-        if [[ "$gov" == "performance" && "$last" != "1" ]]; then
+        if [[ "$gov" == "performance" ]]; then
             echo 1 > "$boost_path"
-            echo "1" > "$boost_file"
             echo "🚀 Turbo Boost ativado"
-        elif [[ "$gov" != "performance" && "$last" != "0" ]]; then
+        else
             echo 0 > "$boost_path"
-            echo "0" > "$boost_file"
             echo "💤 Turbo Boost desativado"
         fi
     fi
@@ -105,25 +108,12 @@ apply_zram_config() {
     local last_streams_file="${BASE_DIR}/last_zram_streams"
     local last_alg_file="${BASE_DIR}/last_zram_algorithm"
     local cooldown_file="${BASE_DIR}/cooldown_zram"
-    local current_streams=0
-    local current_alg="none"
-
+    local current_streams=0 current_alg="none"
     [[ -f "$last_streams_file" ]] && current_streams=$(cat "$last_streams_file")
     [[ -f "$last_alg_file" ]] && current_alg=$(cat "$last_alg_file")
-
     echo "🔄 ZRAM: Streams=${streams} | Algoritmo=${alg}"
 
-    local should_update=false
-
-    if (( streams > 0 && current_streams != streams )); then
-        should_update=true
-    fi
-
-    if [[ "$alg" != "$current_alg" ]]; then
-        should_update=true
-    fi
-
-    if $should_update && \
+    if [[ "$streams" != "$current_streams" || "$alg" != "$current_alg" ]] && \
        [[ ! -f "$cooldown_file" || $(($(date +%s) - $(date -r "$cooldown_file" +%s))) -ge 30 ]]; then
         echo "  🔧 Reconfigurando ZRAM..."
         for dev in /dev/zram*; do
@@ -150,24 +140,12 @@ apply_zram_config() {
 
 faz_o_urro() {
     local new_val="$1" history_arr=() sum=0 avg=0 count=0
-
-    if [[ -f "$HISTORY_FILE" ]]; then
-        mapfile -t history_arr < "$HISTORY_FILE"
-    fi
-
+    [[ -f "$HISTORY_FILE" ]] && mapfile -t history_arr < "$HISTORY_FILE"
     history_arr+=("$new_val")
     count=${#history_arr[@]}
-
-    if (( count > MAX_HISTORY )); then
-        history_arr=("${history_arr[@]:$((count - MAX_HISTORY))}")
-    fi
-
-    for val in "${history_arr[@]}"; do
-        sum=$((sum + val))
-    done
-
+    (( count > MAX_HISTORY )) && history_arr=("${history_arr[@]:$((count - MAX_HISTORY))}")
+    for val in "${history_arr[@]}"; do sum=$((sum + val)); done
     (( ${#history_arr[@]} > 0 )) && avg=$((sum / ${#history_arr[@]}))
-
     printf "%s\n" "${history_arr[@]}" > "$HISTORY_FILE"
     echo "$avg"
 }
@@ -175,19 +153,15 @@ faz_o_urro() {
 get_cpu_usage() {
     local stat_hist_file="${BASE_DIR}/last_stat"
     local cpu_line prev_line last_total curr_total diff_idle diff_total usage=0
-
     cpu_line=$(grep -E '^cpu ' /proc/stat || echo "cpu 0 0 0 0 0 0 0 0 0 0")
     prev_line=$(cat "$stat_hist_file" 2>/dev/null || echo "cpu 0 0 0 0 0 0 0 0 0 0")
     echo "$cpu_line" > "$stat_hist_file"
-
     read -r _ p_user p_nice p_system p_idle p_iowait p_irq p_softirq _ _ <<< "$prev_line"
     read -r _ c_user c_nice c_system c_idle c_iowait c_irq c_softirq _ _ <<< "$cpu_line"
-
     last_total=$((p_user + p_nice + p_system + p_idle + p_iowait + p_irq + p_softirq))
     curr_total=$((c_user + c_nice + c_system + c_idle + c_iowait + c_irq + c_softirq))
     diff_idle=$((c_idle - p_idle))
     diff_total=$((curr_total - last_total))
-
     if (( diff_total > 0 )); then
         usage=$(awk -v dt="$diff_total" -v di="$diff_idle" 'BEGIN { printf "%.0f", (100 * (dt - di)) / dt }')
     fi
@@ -198,18 +172,14 @@ get_cpu_usage() {
 
 apply_all() {
     init_policies
-
     local current_usage=$(get_cpu_usage)
     local avg_usage=$(faz_o_urro "$current_usage")
-    local policy_key=$(determine_policy_key_from_avg "$avg_usage")
-
+    policy_key=$(determine_policy_key_from_avg "$avg_usage")
     read -ra values <<< "${HOLISTIC_POLICIES[$policy_key]}"
-
     echo -e "\n🔄 $(date) | Uso: ${current_usage}% | Média: ${avg_usage}% | Perfil: ${policy_key}%"
     echo "  Governor: ${values[0]}"
     echo "  TDP: ${values[1]}W max | ${values[2]}W min"
     echo "  ZRAM: ${values[3]} streams | Algoritmo: ${values[4]}"
-
     apply_cpu_governor "${values[0]}"
     apply_turbo_boost "${values[0]}"
     apply_tdp_limit "${values[1]}" "${values[2]}"

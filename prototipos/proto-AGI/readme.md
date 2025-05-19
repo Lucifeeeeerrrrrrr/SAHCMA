@@ -1,5 +1,5 @@
 # Protótipo funcional
-
+> Fiz com pressa num wifi roteado de um amigo, entao ta zuado mesmo
 Esse script monolitico **bash standalone** é um deamon-Protótipo de otimização dinâmica baseada em carga de CPU, ZRAM e TDP controlado por via heuristica bayesiana bem pobre e meia boca, mas funcional.
 
 A grosso modo, permite um tuning automático que:
@@ -80,7 +80,7 @@ E solicite ao meu constructo para te guiar, foque sempre em perguntar coisas com
 ```
 Ta bom arrombado, me da a faca e o queijo pq quero saber quais sao os comandos que preciso executar para voce verificar todos os caminhos para ver se batem com o do meu sistema, entao faz  job direito cuzao
 ```
-Solicite ate ele gerar os comandos no terminal para eu conseguir ver o seu sistema e caminho, e no final, cole esse prompt e mude, sei la, se vira ai porra, queer que eu raspe o cu tbm?
+Solicite ate ele gerar os comandos no terminal para eu conseguir ver o seu sistema e caminho, e no final, cole esse prompt e mude, sei la, faca as suas contribuicoes
 ```
 # Cole o terminal 
 Me de o instalador atualizado com o .timer configurado ppara ser executado no boot como root. nao altere nada, apenas adapte para o meu sistema

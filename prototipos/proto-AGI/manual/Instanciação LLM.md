@@ -472,3 +472,47 @@ Mas os academicos (que nunca fizeram um sistema operacional
 na porra de um shell script) vão dizer que é 'não rigoroso'. 
 Grande merda! To economizando 3W/hora enquanto você reclama do ar-condicionado."
 ```
+
+graph TD
+    A[Systemd Service] -->|Inicia| B(bayes_opt.sh)
+    B --> C[Inicializa Diretórios/Arquivos]
+    B --> D[Loop Principal]
+    D --> E[Coleta Uso CPU]
+    E --> F[Calcula Média Móvel]
+    F --> G[Seleciona Política]
+    G --> H[Aplica Configurações]
+    H --> I[Governor CPU]
+    H --> J[TDP Limits]
+    H --> K[Turbo Boost]
+    H --> L[ZRAM Config]
+    I --> D
+    J --> D
+    K --> D
+    L --> D
+
+classDiagram
+    class BayesianDaemon {
+        +BASE_DIR: /etc/bayes_mem
+        +LOG_DIR: /var/log/bayes_mem
+        +HOLISTIC_POLICIES
+        +init_policies()
+        +determine_policy_key_from_avg()
+        +apply_all()
+    }
+    
+    class PowerManagement {
+        +apply_tdp_limit()
+        +apply_turbo_boost()
+    }
+    
+    class CPUGovernor {
+        +apply_cpu_governor()
+    }
+    
+    class ZRAMManager {
+        +apply_zram_config()
+    }
+    
+    BayesianDaemon --> PowerManagement
+    BayesianDaemon --> CPUGovernor
+    BayesianDaemon --> ZRAMManager

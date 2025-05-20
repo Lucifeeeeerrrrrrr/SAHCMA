@@ -72,17 +72,13 @@ Então caso queira adaptar para a sua maquina, é necessário(minha recomendaç�
 
 ## Minha Sugestão
 
-1. No caso, instancia meu snapshot atual colando esse (readme)[]
-
-
-E solicite ao meu constructo para te guiar, foque sempre em perguntar coisas como:
-```
-Ta bom arrombado, me da a faca e o queijo pq quero saber quais sao os comandos que preciso executar para voce verificar todos os caminhos para ver se batem com o do meu sistema, entao faz  job direito cuzao
-```
-Solicite ate ele gerar os comandos no terminal para eu conseguir ver o seu sistema e caminho, e no final, cole esse prompt e mude, sei la, faca as suas contribuicoes
-```
-# Cole o terminal 
-Me de o instalador atualizado com o .timer configurado ppara ser executado no boot como root. nao altere nada, apenas adapte para o meu sistema
+1. No caso, instancia meu snapshot atual colando esse [readme](https://raw.githubusercontent.com/Pedro-02931/SummonLaplaceDemon/refs/heads/main/prototipos/proto-AGI/manual/Instancia%C3%A7%C3%A3o%20LLM.md) num LLM
+2. Cole as especificacoes do seu processador, podendo ser coletada com `lscpu`
+> Atualmente estou só no processador pois queria apenas provar o conceito
+3. Solicite para o LLM um prompt parecido com isso
+```plaintext
++ Quero que ajuste o script para minha arquitetura, então me de os comandos para mapear os caminhos e como faço para você saber onde cada exho e tee deve ser executado.
++ A logica e estrutura devem se manter, seguindo o mermaid, mas a adaptacao deve ser para a minha arquitetura
 ```
 
 **Diagrama de Arquitetura Geral**:

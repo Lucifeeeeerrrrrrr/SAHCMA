@@ -59,28 +59,105 @@ apply_tdp_limit() {
     touch "$cooldown_file"
 }
 
-apply_cpu_governor() {
+apply_cpu_governor_v2() {
     local cpu_gov="$1"
-    local last_gov_file="${BASE_DIR}/last_gov"
-    local cooldown_file="${BASE_DIR}/gov_cooldown"
-    local last_gov="none"
+    local base_dir="${BASE_DIR:-/tmp}"
+    local last_gov_file="${base_dir}/last_gov"
+    local cooldown_file="${base_dir}/gov_cooldown"
+    local available_govs_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"
+    local now=$(date +%s)
 
+    ## Subfunção: Pega temperatura atual do pacote de CPU
+    get_temp() {
+        local temp_raw
+        temp_raw=$(sensors 2>/dev/null | grep -m1 'Package id 0' | awk '{print $4}' | tr -d '+°C')
+        echo "${temp_raw:-40}"  # fallback pra 40°C se falhar
+    }
+
+    ## Subfunção: Pega média de carga nos últimos 1, 5 e 15 minutos
+    get_loadavg() {
+        uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'
+    } # para que serve esse uptime? o que e isso?  e como isso e usado nessa funcao?
+
+    ## Subfunção: Cálculo de variância simples entre 1m e 5m
+    get_load_variance() {
+        local l1 l5 delta
+        read l1 l5 _ < <(get_loadavg)
+        delta=$(echo "$l1 - $l5" | bc -l)
+        echo "${delta#-}"  # valor absoluto
+    } # mano, pode explicar que isso quer dizer? essas porras todas? e para que esse calculo?
+
+    ## Subfunção: Calcula cooldown com base em variação de carga e temp
+    calc_dynamic_cooldown() {
+        local delta_load=$(get_load_variance)
+        local temp=$(get_temp)
+        local cd=7
+
+        # Temperatura acima de 75°C = risco
+        if (( temp >= 75 )); then
+            cd=$((cd + 5))
+        elif (( temp >= 60 )); then
+            cd=$((cd + 3))
+        fi
+
+        # Oscilação de carga alta = sistema instável
+        if (( $(echo "$delta_load > 1.5" | bc -l) )); then
+            cd=$((cd + 4))
+        elif (( $(echo "$delta_load > 0.8" | bc -l) )); then
+            cd=$((cd + 2))
+        elif (( $(echo "$delta_load < 0.3" | bc -l) )); then
+            cd=$((cd - 2))
+        fi
+
+        (( cd < 3 )) && cd=3
+        echo "$cd"
+    }
+
+    ## Subfunção: Valida governor
+    is_valid_governor() {
+        grep -qw "$1" "$available_govs_file"
+    }
+
+    ## Subfunção: Aplica governor a todos os CPUs com fallback
+    set_governor_all_cpus() {
+        local gov="$1"
+        for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do
+            if [[ -w "$cpu_dir/cpufreq/scaling_governor" ]]; then
+                echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" || echo "Erro ao aplicar em $cpu_dir"
+            fi
+        done
+    }
+
+    ## Execução principal
+
+    # Validação
+    if ! is_valid_governor "$cpu_gov"; then
+        echo "✖ Governor '$cpu_gov' não é suportado neste sistema."
+        return 1
+    fi
+
+    # Lê último governor
+    local last_gov="none"
     [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")
 
-    echo "🎛  Governor: Atual=${last_gov} | Novo=${cpu_gov}"
+    echo "🎛 Governor: Atual=${last_gov} | Novo=${cpu_gov}"
 
-    if [[ "$cpu_gov" != "$last_gov" ]] && \
-       [[ ! -f "$cooldown_file" || $(($(date +%s) - $(date -r "$cooldown_file" +%s))) -ge 2 ]]; then
-        echo "  🔧 Alterando governor..."
-        for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-            echo "$cpu_gov" | tee "$cpu" > /dev/null
-        done
+    # Lógica de cooldown
+    local last_change=0
+    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
+    local delta=$((now - last_change))
+    local dynamic_cd=$(calc_dynamic_cooldown)
+
+    if [[ "$cpu_gov" != "$last_gov" && "$delta" -ge "$dynamic_cd" ]]; then
+        echo "  🔧 Alterando governor... (Cooldown: ${dynamic_cd}s)"
+        set_governor_all_cpus "$cpu_gov"
         echo "$cpu_gov" > "$last_gov_file"
         touch "$cooldown_file"
     else
-        echo "  ⏳ Cooldown governor ativo"
+        echo "  ⏳ Cooldown ativo (${delta}s/${dynamic_cd}s) ou governor já aplicado"
     fi
 }
+
 
 apply_turbo_boost() {
     local gov="$1"

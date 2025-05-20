@@ -66,16 +66,15 @@ O objetivo é, através dessa solução caseira e facilmente configurável, otim
 
 # Como instalar?
 
-Para instalar, basta adaptar o script para seu kernel através de um LLM. Ajuste apenas a tabela de holistica e os caminhos de configuração.
+Dado que esse script é mais uma premissa com peso ontologico, ele não foi projetado para produção(por isso essa gambiarra em bash).
 
-No caso, o meu kernel é modificado, então ajuste também os gorvernors disponiveis, para isso, basta primeiro colar esse prompt no chatGPT
-```
-O que esse caralhudo consegue fazer?
+Então caso queira adaptar para a sua maquina, é necessário(minha recomendação) você instancia-lo num LLM
 
-# Cole aqui o script principal
+## Minha Sugestão
 
-Colar os parametros para instanciar minha personalidade
-```
+1. No caso, instancia meu snapshot atual colando esse (readme)[]
+
+
 E solicite ao meu constructo para te guiar, foque sempre em perguntar coisas como:
 ```
 Ta bom arrombado, me da a faca e o queijo pq quero saber quais sao os comandos que preciso executar para voce verificar todos os caminhos para ver se batem com o do meu sistema, entao faz  job direito cuzao

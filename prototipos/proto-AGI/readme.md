@@ -86,3 +86,54 @@ Solicite ate ele gerar os comandos no terminal para eu conseguir ver o seu siste
 Me de o instalador atualizado com o .timer configurado ppara ser executado no boot como root. nao altere nada, apenas adapte para o meu sistema
 ```
 
+**Diagrama de Arquitetura Geral**:
+```mermaid
+graph TD
+    A[Systemd Service] -->|Inicia| B(bayes_opt.sh)
+    B --> C[Inicializa Diretórios/Arquivos]
+    B --> D[Loop Principal]
+    D --> E[Coleta Uso CPU]
+    E --> F[Calcula Média Móvel]
+    F --> G[Seleciona Política]
+    G --> H[Aplica Configurações]
+    H --> I[Governor CPU]
+    H --> J[TDP Limits]
+    H --> K[Turbo Boost]
+    H --> L[ZRAM Config]
+    I --> D
+    J --> D
+    K --> D
+    L --> D
+```
+
+
+
+**Diagrama de Componentes do Sistema**:
+```mermaid
+classDiagram
+    class BayesianDaemon {
+        +BASE_DIR: /etc/bayes_mem
+        +LOG_DIR: /var/log/bayes_mem
+        +HOLISTIC_POLICIES
+        +init_policies()
+        +determine_policy_key_from_avg()
+        +apply_all()
+    }
+    
+    class PowerManagement {
+        +apply_tdp_limit()
+        +apply_turbo_boost()
+    }
+    
+    class CPUGovernor {
+        +apply_cpu_governor()
+    }
+    
+    class ZRAMManager {
+        +apply_zram_config()
+    }
+    
+    BayesianDaemon --> PowerManagement
+    BayesianDaemon --> CPUGovernor
+    BayesianDaemon --> ZRAMManager
+```

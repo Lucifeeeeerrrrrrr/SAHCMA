@@ -1,68 +1,64 @@
 #!/bin/bash
-# Script ainda meio zuado, mas vou arrumar, mas fique a vontade para fazer um pull Request!
-echo "🚀 Instalando daemon bayesiano fodástico..."
-
-BIN_PATH="/usr/local/bin/bayes_opt.sh"
-SERVICE_PATH="/etc/systemd/system/bayes_opt.service"
-
-# 1. Script principal (o bicho feio todo)
-cat <<'EOF' > "$BIN_PATH"
-#!/bin/bash
-
+# Script ainda esta meio cagado, caso queira contribuir, que deus te abençoe, ou algum orixa aleatorio por ai
 BASE_DIR="/etc/bayes_mem"
-mkdir -p "$BASE_DIR"
 LOG_DIR="/var/log/bayes_mem"
-mkdir -p "$LOG_DIR"
 TREND_LOG="$BASE_DIR/cpu_trend.log"
 HISTORY_FILE="$BASE_DIR/cpu_history"
 MAX_HISTORY=5
 MAX_TDP=15
 CORES_TOTAL=$(nproc --all)
 
+initialize_directories() {
+    mkdir -p "$BASE_DIR" "$LOG_DIR"
+    [[ -f "$HISTORY_FILE" ]] || touch "$HISTORY_FILE"
+    [[ -f "$TREND_LOG" ]] || touch "$TREND_LOG"
+}
+
 get_temp() {  
-        local temp_raw  
-        temp_raw=$(sensors 2>/dev/null | grep -m1 'Package id 0' | awk '{print $4}' | tr -d '+°C' 2>/dev/null)  
-        echo "${temp_raw:-40}"  
-    }  
+    local temp_raw  
+    temp_raw=$(sensors 2>/dev/null | grep -m1 'Package id 0' | awk '{print $4}' | tr -d '+°C' 2>/dev/null)  
+    echo "${temp_raw:-40}"  
+}  
 
-    # Subfunção: Média de carga (1m, 5m, 15m)  
-    get_loadavg() {  
-        uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'  
-    }  
+get_loadavg() {  
+    uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'  
+}  
 
-    # Subfunção: Cálculo de variância entre 1m e 5m  
-    get_load_variance() {  
-        local l1 l5 delta  
-        read l1 l5 _ < <(get_loadavg)  
-        delta=$(echo "$l1 - $l5" | bc -l)  
-        echo "${delta#-}"  
-    }  
+get_load_variance() {  
+    local l1 l5 delta  
+    read l1 l5 _ < <(get_loadavg)  
+    delta=$(echo "$l1 - $l5" | bc -l)  
+    echo "${delta#-}"  
+}  
 
-    # Subfunção: Cooldown dinâmico baseado em carga e temperatura  
-    calc_dynamic_cooldown() {  
-        local delta_load=$(get_load_variance)  
-        local temp=$(get_temp)  
-        local cd=7  
+calc_impact_cooldown() {
+    local base_cd=$(calc_dynamic_cooldown)
+    local impact_factor="$1"
+    echo $(awk -v cd="$base_cd" -v factor="$impact_factor" 'BEGIN {print int(cd * factor)}')
+}
 
-        # Regras térmicas  
-        if (( temp >= 75 )); then  
-            cd=$((cd + 5))  
-        elif (( temp >= 60 )); then  
-            cd=$((cd + 3))  
-        fi  
+calc_dynamic_cooldown() {  
+    local delta_load=$(get_load_variance)  
+    local temp=$(get_temp)  
+    local cd=7  
 
-        # Regras de variância de carga  
-        if (( $(echo "$delta_load > 1.5" | bc -l) )); then  
-            cd=$((cd + 4))  
-        elif (( $(echo "$delta_load > 0.8" | bc -l) )); then  
-            cd=$((cd + 2))  
-        elif (( $(echo "$delta_load < 0.3" | bc -l) )); then  
-            cd=$((cd - 2))  
-        fi  
+    if (( temp >= 75 )); then  
+        cd=$((cd + 5))  
+    elif (( temp >= 60 )); then  
+        cd=$((cd + 3))  
+    fi  
 
-        (( cd < 3 )) && cd=3  
-        echo "$cd"  
-    }  
+    if (( $(echo "$delta_load > 1.5" | bc -l) )); then  
+        cd=$((cd + 4))  
+    elif (( $(echo "$delta_load > 0.8" | bc -l) )); then  
+        cd=$((cd + 2))  
+    elif (( $(echo "$delta_load < 0.3" | bc -l) )); then  
+        cd=$((cd - 2))  
+    fi  
+
+    (( cd < 3 )) && cd=3  
+    echo "$cd"  
+}  
 
 faz_o_urro() {
     local new_val="$1" history_arr=() sum=0 avg=0
@@ -87,22 +83,18 @@ get_cpu_usage() {
     local curr_total=$((cu + cn + cs + ci))
     local diff_idle=$((ci - pi))
     local diff_total=$((curr_total - prev_total))
-    if (( diff_total > 0 )); then
-        usage=$(( (100 * (diff_total - diff_idle)) / diff_total ))
-    fi
+    (( diff_total > 0 )) && usage=$(( (100 * (diff_total - diff_idle)) / diff_total ))
     echo "$usage"
 }
 
 determine_policy_key_from_avg() {
     local avg_load=$1 key="000"
-    if (( avg_load >= 90 )); then key="100"
-    elif (( avg_load >= 80 )); then key="080"
-    elif (( avg_load >= 60 )); then key="060"
-    elif (( avg_load >= 40 )); then key="040"
-    elif (( avg_load >= 20 )); then key="020"
-    elif (( avg_load >= 5 )); then key="005"
-    elif (( avg_load >= 0 )); then key="000"
-    fi
+    (( avg_load >= 90 )) && key="100"
+    (( avg_load >= 80 )) && key="080"
+    (( avg_load >= 60 )) && key="060"
+    (( avg_load >= 40 )) && key="040"
+    (( avg_load >= 20 )) && key="020"
+    (( avg_load >= 5 )) && key="005"
     echo "$key"
 }
 
@@ -118,13 +110,11 @@ apply_cpu_governor() {
         ["100"]="performance"  
     )  
     local cpu_gov="${MAP[$key]:-ondemand}"  
-    local base_dir="${BASE_DIR:-/tmp}"  
-    local last_gov_file="${base_dir}/last_gov"  
-    local cooldown_file="${base_dir}/gov_cooldown"  
+    local last_gov_file="${BASE_DIR}/last_gov"  
+    local cooldown_file="${BASE_DIR}/gov_cooldown"  
     local available_govs_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"  
     local now=$(date +%s)  
 
-    # Subfunção: Valida governor  
     is_valid_governor() {  
         grep -qw "$cpu_gov" "$available_govs_file" || {  
             echo "✖ Governor '$cpu_gov' não suportado. Disponíveis: $(cat "$available_govs_file")" >&2  
@@ -132,103 +122,86 @@ apply_cpu_governor() {
         }  
     }  
 
-    # Subfunção: Aplica governor em todos os CPUs  
     set_governor_all_cpus() {  
         local gov="$1"  
         for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do  
-            if [[ -w "$cpu_dir/cpufreq/scaling_governor" ]]; then  
-                if ! echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" 2>/dev/null; then  
-                    echo "  ‼ Falha ao aplicar '$gov' em $cpu_dir" >&2  
-                fi  
-            else  
-                echo "  ‼ Permissão negada em $cpu_dir" >&2  
-            fi  
+            [[ -w "$cpu_dir/cpufreq/scaling_governor" ]] && echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" 2>/dev/null || 
+            echo "  ‼ Permissão negada em $cpu_dir" >&2  
         done  
     }  
 
-    # Valida governor  
-    if ! is_valid_governor "$cpu_gov"; then  
-        return 1  
-    fi  
+    is_valid_governor "$cpu_gov" || return 1  
 
-    # Estado atual  
     local last_gov="none"  
     [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")  
 
-    # Cálculo de cooldown  
     local last_change=0  
     [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)  
     local delta=$((now - last_change))  
-    local dynamic_cd=$(calc_dynamic_cooldown)  
+    local dynamic_cd=$(calc_impact_cooldown 1.0)  # Fator 1.0 para mudanças de baixo impacto
 
     echo "⚙ Governor: Key=${key} | Mapeado=${cpu_gov} | Último=${last_gov} | CD=${dynamic_cd}s"  
 
-    # Aplicação condicional  
-    if [[ "$cpu_gov" != "$last_gov" ]] && [[ "$delta" -ge "$dynamic_cd" ]]; then  
+    if [[ "$cpu_gov" != "$last_gov" ]] && (( delta >= dynamic_cd )); then  
         echo "  🔄 Aplicando governor..."  
         set_governor_all_cpus "$cpu_gov"  
         echo "$cpu_gov" > "$last_gov_file"  
         touch "$cooldown_file"  
     else  
-        echo "  ⚠ Inação: "  
-        echo "    - Governor igual? $( [[ "$cpu_gov" == "$last_gov" ]] && echo "SIM" || echo "NÃO" )"  
+        echo "  ⚠ Inação: Governor igual? $( [[ "$cpu_gov" == "$last_gov" ]] && echo "SIM" || echo "NÃO" )"  
         echo "    - Delta cooldown: ${delta}s/${dynamic_cd}s"  
     fi  
 }  
 
 apply_turbo_boost() {
     local key="$1"
-    declare -A MAP
-    MAP["000"]="ondemand"
-    MAP["005"]="ondemand"
-    MAP["020"]="ondemand"
-    MAP["040"]="ondemand"
-    MAP["060"]="performance"
-    MAP["080"]="performance"
-    MAP["100"]="performance"
-    local gov="${MAP[$key]}"
-    local boost_path="/sys/devices/system/cpu/cpufreq/boost"
-    local boost_file="${BASE_DIR}/last_turbo"
-    local last="none"
+    declare -A MAP=(
+        ["000"]="ondemand" ["005"]="ondemand" ["020"]="ondemand" ["040"]="ondemand" 
+        ["060"]="performance" ["080"]="performance" ["100"]="performance"
+    )
+    local gov="${MAP[$key]}" boost_path="/sys/devices/system/cpu/cpufreq/boost"
+    local boost_file="${BASE_DIR}/last_turbo" cooldown_file="${BASE_DIR}/turbo_cooldown"
+    local last="none" now=$(date +%s) last_change=0 delta dynamic_cd=$(calc_impact_cooldown 1.2)  # Fator 1.2 para turbo boost
+
     [[ -f "$boost_file" ]] && last=$(cat "$boost_file")
+    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
+    delta=$((now - last_change))
+
     if [[ -f "$boost_path" ]]; then
-        if [[ "$gov" == "performance" && "$last" != "1" ]]; then
-            echo 1 > "$boost_path"
-            echo "1" > "$boost_file"
+        if [[ "$gov" == "performance" && "$last" != "1" && "$delta" -ge "$dynamic_cd" ]]; then
+            echo 1 > "$boost_path" && echo "1" > "$boost_file"
+            touch "$cooldown_file"
             echo "🚀 Turbo Boost ativado"
-        elif [[ "$gov" != "performance" && "$last" != "0" ]]; then
-            echo 0 > "$boost_path"
-            echo "0" > "$boost_file"
+        elif [[ "$gov" != "performance" && "$last" != "0" && "$delta" -ge "$dynamic_cd" ]]; then
+            echo 0 > "$boost_path" && echo "0" > "$boost_file"
+            touch "$cooldown_file"
             echo "💤 Turbo Boost desativado"
         fi
     fi
 }
 
-
 apply_tdp_profile() {
-    local key="$1"
-    declare -A MAP
-    MAP["000"]="0 0"
-    MAP["005"]="$((MAX_TDP * 15 / 100)) $((MAX_TDP * 0))"
-    MAP["020"]="$((MAX_TDP * 30 / 100)) $((MAX_TDP * 10 / 100))"
-    MAP["040"]="$((MAX_TDP * 45 / 100)) $((MAX_TDP * 20 / 100))"
-    MAP["060"]="$((MAX_TDP * 60 / 100)) $((MAX_TDP * 30 / 100))"
-    MAP["080"]="$((MAX_TDP * 75 / 100)) $((MAX_TDP * 40 / 100))"
-    MAP["100"]="$((MAX_TDP)) $((MAX_TDP * 50 / 100))"
-    local tdp_pair="${MAP[$key]}"
+    local key="$1" tdp_pair
+    declare -A MAP=(
+        ["000"]="0 0" ["005"]="$((MAX_TDP * 15 / 100)) $((MAX_TDP * 0))" 
+        ["020"]="$((MAX_TDP * 30 / 100)) $((MAX_TDP * 10 / 100))" 
+        ["040"]="$((MAX_TDP * 45 / 100)) $((MAX_TDP * 20 / 100))" 
+        ["060"]="$((MAX_TDP * 60 / 100)) $((MAX_TDP * 30 / 100))" 
+        ["080"]="$((MAX_TDP * 75 / 100)) $((MAX_TDP * 40 / 100))" 
+        ["100"]="$MAX_TDP $((MAX_TDP * 50 / 100))"
+    )
+    tdp_pair="${MAP[$key]}"
     [[ -z "$tdp_pair" ]] && { echo "❌ Perfil TDP inválido"; return 1; }
     read target_max target_min <<< "$tdp_pair"
     
-    local now=$(date +%s)
-    local current_power="${target_min} ${target_max}"
-    local last_power_file="${BASE_DIR}/last_power"
-    local cooldown_file="${BASE_DIR}/power_cooldown"
-    local last_power="none"
+    local now=$(date +%s) current_power="${target_min} ${target_max}"
+    local last_power_file="${BASE_DIR}/last_power" cooldown_file="${BASE_DIR}/power_cooldown"
+    local last_power="none" last_change=0 delta dynamic_cd=$(calc_impact_cooldown 1.5)  # Fator 1.5 para TDP
+
     [[ -f "$last_power_file" ]] && last_power=$(cat "$last_power_file")
-    local last_change=0
     [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
-    local delta=$((now - last_change))
-    local dynamic_cd=$(calc_dynamic_cooldown)
+    delta=$((now - last_change))
+
     echo "🌡  Temp=$(get_temp)°C | ΔCarga=$(get_load_variance) | Cooldown=${dynamic_cd}s"
     if [[ "$current_power" != "$last_power" ]]; then
         if (( delta >= dynamic_cd )); then
@@ -246,45 +219,43 @@ apply_tdp_profile() {
 }
 
 apply_zram_config() {
-    local key="$1"
-    local key="$1"  
-    declare -A MAP=(  
-        ["000"]="0 0"  
-        ["005"]="$((CORES_TOTAL * 15 / 100)) zstd"  
-        ["020"]="$((CORES_TOTAL * 30 / 100)) lz4hc"  
-        ["040"]="$((CORES_TOTAL * 45 / 100)) lz4"  
-        ["060"]="$((CORES_TOTAL * 60 / 100)) lzo"  
-        ["080"]="$((CORES_TOTAL * 50 / 100)) lzo"  
-        ["100"]="$CORES_TOTAL lzo-rle"  
-    )  
-    local streams_alg="${MAP[$key]}" && local streams="${streams_alg% *}" local alg="${streams_alg#* }"  
-    local last_streams_file="${BASE_DIR}/last_zram_streams"
-    local last_alg_file="${BASE_DIR}/last_zram_algorithm"
-    local cooldown_file="${BASE_DIR}/cooldown_zram"
-    local current_streams=0
-    local current_alg="none"
+    local key="$1" streams_alg streams alg
+    declare -A MAP=(
+        ["000"]="0 0" ["005"]="$((CORES_TOTAL * 15 / 100)) zstd" 
+        ["020"]="$((CORES_TOTAL * 30 / 100)) lz4hc" 
+        ["040"]="$((CORES_TOTAL * 45 / 100)) lz4" 
+        ["060"]="$((CORES_TOTAL * 60 / 100)) lzo" 
+        ["080"]="$((CORES_TOTAL * 50 / 100)) lzo" 
+        ["100"]="$CORES_TOTAL lzo-rle"
+    )
+    streams_alg="${MAP[$key]}" && streams="${streams_alg% *}" alg="${streams_alg#* }"
+    local last_streams_file="${BASE_DIR}/last_zram_streams" last_alg_file="${BASE_DIR}/last_zram_algorithm"
+    local cooldown_file="${BASE_DIR}/cooldown_zram" current_streams=0 current_alg="none"
     [[ -f "$last_streams_file" ]] && current_streams=$(cat "$last_streams_file")
     [[ -f "$last_alg_file" ]] && current_alg=$(cat "$last_alg_file")
+
     if (( streams != current_streams || alg != current_alg )); then
-        if [[ ! -f "$cooldown_file" || $(($(date +%s) - $(date -r "$cooldown_file" +%s))) -ge 30 ]]; then
+        local now=$(date +%s) last_change=0 delta dynamic_cd=$(calc_impact_cooldown 2.0)  # Fator 2.0 para ZRAM
+        [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
+        delta=$((now - last_change))
+
+        if (( delta >= dynamic_cd )); then
             echo "🔧 Reconfigurando ZRAM: Streams=$streams Alg=$alg"
             for dev in /dev/zram*; do swapoff "$dev" 2>/dev/null; done
             sleep 0.3
             modprobe -r zram 2>/dev/null
             modprobe zram num_devices="$streams"
             for i in /dev/zram*; do
-                dev=$(basename "$i")
-                echo 1 > "/sys/block/$dev/reset"
-                echo "$alg" > "/sys/block/$dev/comp_algorithm"
-                echo 1G > "/sys/block/$dev/disksize"
-                mkswap "/dev/$dev"
-                swapon "/dev/$dev"
+                echo 1 > "/sys/block/$(basename "$i")/reset"
+                echo "$alg" > "/sys/block/$(basename "$i")/comp_algorithm"
+                echo 1G > "/sys/block/$(basename "$i")/disksize"
+                mkswap "$i" && swapon "$i"
             done
             echo "$streams" > "$last_streams_file"
             echo "$alg" > "$last_alg_file"
             touch "$cooldown_file"
         else
-            echo "⏳ Cooldown ZRAM ativo"
+            echo "⏳ Cooldown ZRAM ativo: ${delta}s/${dynamic_cd}s"
         fi
     else
         echo "✅ ZRAM já configurado"
@@ -302,45 +273,16 @@ apply_all() {
     apply_zram_config "$policy_key"
 }
 
-[[ ! -f "$HISTORY_FILE" ]] && touch "$HISTORY_FILE"
-[[ ! -f "$TREND_LOG" ]] && touch "$TREND_LOG"
-echo "🟢 Iniciando OTIMIZADOR BAYESIANO"
-while true; do
-    {
-        echo "🧾 Último perfil aplicado: $(date)"
-        apply_all
-    } >> "$LOG_DIR/bayes.log"
-    sleep 5
-done
+main() {
+    initialize_directories
+    echo "🟢 Iniciando OTIMIZADOR BAYESIANO"
+    while true; do
+        {
+            echo "🧾 Último perfil aplicado: $(date)"
+            apply_all
+        } >> "$LOG_DIR/bayes.log"
+        sleep 5
+    done
+}
 
-EOF
-
-chmod +x "$BIN_PATH"
-
-# 2. Service systemd
-cat <<EOF > "$SERVICE_PATH"
-[Unit]
-Description=Daemon Bayesiano de Otimização de CPU e ZRAM
-After=network.target
-StartLimitIntervalSec=0
-
-[Service]
-Type=simple
-ExecStart=$BIN_PATH
-Restart=always
-RestartSec=3
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-echo "🔧 Recarregando systemd..."
-systemctl daemon-reexec
-systemctl daemon-reload
-
-echo "✅ Habilitando serviço no boot..."
-systemctl enable --now bayes_opt.service
-
-echo "📡 Status do serviço:"
-systemctl status bayes_opt.service --no-pager
+main

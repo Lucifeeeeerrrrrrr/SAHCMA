@@ -122,7 +122,7 @@ Ele, em paralelo ao corpo, se comporta como o **sistema nervoso autônomo**:
    Um arquivo (`last_gov_file`) guarda o último governor aplicado, evitando gastar tempo, I/O e ciclos aplicando o mesmo estado repetidamente.
    > Aqui pretendo usar futuramente como um token para criar um espaço matematico que representa sifnificado.
 
-2. **Cooldown dinâmico, caralho**
+2. **Cooldown dinâmico**
    O script calcula o intervalo necessário antes de permitir nova troca sem ficar girando no próprio rabo trocando governor a cada segundo. Isso aqui considera:
 
    * **Temperatura da CPU** (acima de 60°C, o tempo de espera sobe)

@@ -3,105 +3,71 @@
 Esse script é um **controlador térmico e semântico** de governors da CPU, projetado pra **evitar troca desnecessária, instabilidade, flapping de carga** e outras merdas que podem fazer seu chip rebolar devagarinho. Ele **não troca de governor feito um pamonha**, mas apenas quando a situação realmente pede, e quando troca, o faz com cooldown calculado com base em **temperatura e variância de carga**.
 
 ```bash
-apply_cpu_governor() {
-    local cpu_gov="$1"
-    local base_dir="${BASE_DIR:-/tmp}"
-    local last_gov_file="${base_dir}/last_gov"
-    local cooldown_file="${base_dir}/gov_cooldown"
-    local available_govs_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"
-    local now=$(date +%s)
+apply_cpu_governor() {  
+    local key="$1"  
+    declare -A MAP=(  
+        ["000"]="ondemand"  
+        ["005"]="ondemand"  
+        ["020"]="ondemand"  
+        ["040"]="ondemand"  
+        ["060"]="performance"  
+        ["080"]="performance"  
+        ["100"]="performance"  
+    )  
+    local cpu_gov="${MAP[$key]:-ondemand}"  
+    local base_dir="${BASE_DIR:-/tmp}"  
+    local last_gov_file="${base_dir}/last_gov"  
+    local cooldown_file="${base_dir}/gov_cooldown"  
+    local available_govs_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"  
+    local now=$(date +%s)  
 
-    ## Subfunção: Pega temperatura atual do pacote de CPU
-    get_temp() {
-        local temp_raw
-        temp_raw=$(sensors 2>/dev/null | grep -m1 'Package id 0' | awk '{print $4}' | tr -d '+°C')
-        echo "${temp_raw:-40}"  # fallback pra 40°C se falhar
-    }
+    # Subfunção: Valida governor  
+    is_valid_governor() {  
+        grep -qw "$cpu_gov" "$available_govs_file" || {  
+            echo "✖ Governor '$cpu_gov' não suportado. Disponíveis: $(cat "$available_govs_file")" >&2  
+            return 1  
+        }  
+    }  
 
-    ## Subfunção: Pega média de carga nos últimos 1, 5 e 15 minutos
-    get_loadavg() {
-        uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'
-    }
+    # Subfunção: Aplica governor em todos os CPUs  
+    set_governor_all_cpus() {  
+        local gov="$1"  
+        for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do  
+            if [[ -w "$cpu_dir/cpufreq/scaling_governor" ]]; then  
+                if ! echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" 2>/dev/null; then  
+                    echo "  ‼ Falha ao aplicar '$gov' em $cpu_dir" >&2  
+                fi  
+            else  
+                echo "  ‼ Permissão negada em $cpu_dir" >&2  
+            fi  
+        done  
+    }  
 
-    ## Subfunção: Cálculo de variância simples entre 1m e 5m
-    get_load_variance() {
-        local l1 l5 delta
-        read l1 l5 _ < <(get_loadavg)
-        delta=$(echo "$l1 - $l5" | bc -l)
-        echo "${delta#-}"  # valor absoluto
-    }
+    if ! is_valid_governor "$cpu_gov"; then  
+        return 1  
+    fi  
+ 
+    local last_gov="none"  
+    [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")  
 
-    ## Subfunção: Calcula cooldown com base em variação de carga e temp
-    calc_dynamic_cooldown() {
-        local delta_load=$(get_load_variance)
-        local temp=$(get_temp)
-        local cd=7
+    local last_change=0  
+    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)  
+    local delta=$((now - last_change))  
+    local dynamic_cd=$(calc_dynamic_cooldown)  
 
-        # Temperatura acima de 75°C = risco
-        if (( temp >= 75 )); then
-            cd=$((cd + 5))
-        elif (( temp >= 60 )); then
-            cd=$((cd + 3))
-        fi
+    echo "⚙ Governor: Key=${key} | Mapeado=${cpu_gov} | Último=${last_gov} | CD=${dynamic_cd}s"  
 
-        # Oscilação de carga alta = sistema instável
-        if (( $(echo "$delta_load > 1.5" | bc -l) )); then
-            cd=$((cd + 4))
-        elif (( $(echo "$delta_load > 0.8" | bc -l) )); then
-            cd=$((cd + 2))
-        elif (( $(echo "$delta_load < 0.3" | bc -l) )); then
-            cd=$((cd - 2))
-        fi
-
-        (( cd < 3 )) && cd=3
-        echo "$cd"
-    }
-
-    ## Subfunção: Valida governor
-    is_valid_governor() {
-        grep -qw "$1" "$available_govs_file"
-    }
-
-    ## Subfunção: Aplica governor a todos os CPUs com fallback
-    set_governor_all_cpus() {
-        local gov="$1"
-        for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do
-            if [[ -w "$cpu_dir/cpufreq/scaling_governor" ]]; then
-                echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" || echo "Erro ao aplicar em $cpu_dir"
-            fi
-        done
-    }
-
-    ## Execução principal
-
-    # Validação
-    if ! is_valid_governor "$cpu_gov"; then
-        echo "✖ Governor '$cpu_gov' não é suportado neste sistema."
-        return 1
-    fi
-
-    # Lê último governor
-    local last_gov="none"
-    [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")
-
-    echo "🎛 Governor: Atual=${last_gov} | Novo=${cpu_gov}"
-
-    # Lógica de cooldown 
-    local last_change=0
-    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
-    local delta=$((now - last_change))
-    local dynamic_cd=$(calc_dynamic_cooldown)
-
-    if [[ "$cpu_gov" != "$last_gov" && "$delta" -ge "$dynamic_cd" ]]; then
-        echo "  🔧 Alterando governor... (Cooldown: ${dynamic_cd}s)"
-        set_governor_all_cpus "$cpu_gov"
-        echo "$cpu_gov" > "$last_gov_file"
-        touch "$cooldown_file"
-    else
-        echo "  ⏳ Cooldown ativo (${delta}s/${dynamic_cd}s) ou governor já aplicado"
-    fi
-}
-
+    if [[ "$cpu_gov" != "$last_gov" ]] && [[ "$delta" -ge "$dynamic_cd" ]]; then  
+        echo "  🔄 Aplicando governor..."  
+        set_governor_all_cpus "$cpu_gov"  
+        echo "$cpu_gov" > "$last_gov_file"  
+        touch "$cooldown_file"  
+    else  
+        echo "  ⚠ Inação: "  
+        echo "    - Governor igual? $( [[ "$cpu_gov" == "$last_gov" ]] && echo "SIM" || echo "NÃO" )"  
+        echo "    - Delta cooldown: ${delta}s/${dynamic_cd}s"  
+    fi  
+}  
 ```
 ---
 
@@ -122,7 +88,7 @@ Ele, em paralelo ao corpo, se comporta como o **sistema nervoso autônomo**:
    Um arquivo (`last_gov_file`) guarda o último governor aplicado, evitando gastar tempo, I/O e ciclos aplicando o mesmo estado repetidamente.
    > Aqui pretendo usar futuramente como um token para criar um espaço matematico que representa sifnificado.
 
-2. **Cooldown dinâmico**
+2. **Cooldown dinâmico (função externa)**
    O script calcula o intervalo necessário antes de permitir nova troca sem ficar girando no próprio rabo trocando governor a cada segundo. Isso aqui considera:
 
    * **Temperatura da CPU** (acima de 60°C, o tempo de espera sobe)

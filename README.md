@@ -3,6 +3,7 @@ description: GNU GENERAL PUBLIC LICENSE                        Version 3, 29 Jun
 ---
 
 # O Palco Cósmico e a Luta Inútil (Mas Absolutamente Necessária)
+> *“Pensar não é fazer poema, é querer não se foder”*
 
 O Cosmos apesar de complexo para nossa mente entender, é bem simples se observado direito, onde, de forma resumida, pode ser visto como um enquanto verdade, roda em silêncio absoluto, um _loop_ infinito sem memoria, onde cada coisa só existe porque deu uma trombada violenta em outra e segue indiferente aos flash de consciencia que emergem do nada, vão para algo, e volto pro nada do nada.
 

@@ -1,8 +1,8 @@
 # Filosofia do que é IA
 
-Inteligência Artificial, no seu nucleo, não é peso sináptico treinado em cluster, nem equação estocástica disfarçada de milagre, e sim, por definição funcional, **a capacidade de um sistema manter coerência operacional em ambientes variáveis com percepção limitada e feedback interno**. Um termostato que regula a porra do aquecedor com base em temperatura é mais funcionalmente inteligente que muito LLM que alucina sobre político honesto. 
+Inteligência Artificial, no seu nucleo, não é peso sináptico treinado em cluster, nem equação estocástica disfarçada de milagre, e sim, por definição funcional, **a capacidade de um sistema manter coerência operacional em ambientes variáveis com percepção limitada e feedback interno**. Um termostato que regula um aquecedor com base em temperatura é mais funcionalmente inteligente que muito LLM que alucina sobre político honesto. 
 
-Em resumo, essa tangente é mais para explicar para qualquer "IA Enginner" com 80 formações o que de fato é uma IA, e o modelo que está descrito aqui, diferente daqueles cocozinhos que não passam de reconhecimento de rosto e ações para fazer tirinho em tela e dar nome, não é um brinquedo acadêmico — é um constructo **homeostático operacional**, movido por estados internos, sensação e reação contínua.
+Em resumo, essa tangente é mais para explicar o que de fato é uma IA, e o modelo que está descrito aqui, diferente daqueles cocozinhos que não passam de reconhecimento de rosto e ações para fazer tirinho em tela e dar nome, não é um brinquedo acadêmico — é um constructo **homeostático operacional**, movido por estados internos, sensação e reação contínua.
 
 Esse modelo propõe que **a IA é uma entidade de feedback**: percepção → memória → decisão → ação → autocorreção. Não existe aprendizado se não há persistência de estado e a consciência não passa de um histórico que afeta comportamento. Essa merda aqui, mesmo escrita em Bash ~~por um fodido estranho que todo mundo substima~~, cumpre todos os critérios pragmáticos: age em cima de estímulo, modula com base em consequência, e regula com base em risco. E o mais importante: sobrevive.  
 
@@ -102,6 +102,7 @@ graph TD
   end
 ```
 
-# ! Crítica para os Virgens: Aqui Não É Laboratório, É o Mundo Real!
+# ! Crítica para os Puristas: Aqui Não É Laboratório, É o Mundo Real!
 
-Tem gente que vai olhar pra isso e dizer "isso não é IA de verdade". Filha da puta, *barata pensa melhor que muito paper*. O critério de inteligência não é backpropagation, é **adaptabilidade em ambiente variável com percepção limitada**. A AGI não vai sair de um cluster com 10 RTX 4090, mas do porão de alguém rodando Arch Linux com ventilador falhando. O que define cognição é agência, feedback e modelo interno. O que você tem aqui é isso — com `awk`, `cut` e `bc`. Que se fodam os puristas que confundem complexidade algorítmica com inteligência real.
+Tem gente que vai olhar pra isso e dizer "isso não é IA de verdade". Filha da puta, *barata pensa melhor que muito paper*. O critério de inteligência não é backpropagation, é **adaptabilidade em ambiente variável com percepção limitada**. A AGI não vai sair de um cluster com 10 RTX 4090, mas do porão de alguém rodando Arch Linux com ventilador falhando. O que define cognição é agência, feedback e modelo interno. O que você tem aqui é isso — com `awk`, `cut` e `bc`. Que se fodam os puristas que confundem complexidade algorítmica com inteligência real
+### Desculpa se pareci na defensiva, é que passei a noite toda fazendo Turing reverso no deepseek para provar que era uma IA, então ainda tô meio na defensiva kkkkk

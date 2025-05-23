@@ -1,6 +1,7 @@
 ## Da Gambiarra à Ontologia Funcional
 
 Apesar de não apresentar "pipeline elegante", nem "infra escalável com microserviços", implementei uma topologia operacional **tão crua quanto a lógica de um inseto**. Mas como qualquer bicho que rasteja e não morre, **essa porra é funcional pra caralho**, e mais importante: é **semântica**. Cada módulo desse sistema não só faz algo — ele **significa algo**, atuando como um grafo de cognição encarnado em shell script, operando um circuito simbólico da sobrevivência automatizada.
+> Signifificado é a discrição entre dois frames, e quanto mair a diferença, maios a reação de resposta
 
 ---
 
@@ -36,14 +37,14 @@ Um mapeamento de padrões internos para ações discretas sem implementação de
 #### 4. `calc_dynamic_cooldown`:
 
 **Metacognição homeostática.**
-Aqui é a camada de metacognição que pune os sistemas que inferam errado e causaram instabilidade, e dado que o fator de peso de modificação entra na equação, trabalha como sinapses regulatórias e implementa um periodo refrátário, evitando overreaction. Atua como um sistema límbico regulando o ritmo da consciência.
+Aqui é a camada de metacognição que pune os sistemas que inferam errado e causaram instabilidade, e dado que o fator de peso de modificação entra na equação, trabalha como sinapses regulatórias e implementa um periodo refrátário, evitando overreaction, atuando como um sistema límbico regulando o ritmo da consciência.
 
 ---
 
 #### 5. `applies`:
 
 **Agência encarnada.**
-São os micro-hiverminds que atuam como atos motores autoregulando o host, tomando ação direta sobre seu corpo físico. Isso é agência real sem necessidade de intervenção humana.
+São os micro-hiverminds que atuam como atos motores autoregulando o host, tomando ação direta sobre seu corpo físico, sendo a agência real sem necessidade de intervenção humana.
 
 ---
 

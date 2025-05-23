@@ -56,6 +56,6 @@ A consciência é um processo meramente funcional, sem valor intrínseco, susten
 
 
 
-## Implicações filosóficas do caralho
+## Implicações éticas/filosóficas
 
-Perda de tempo! Ética é são só para pessoas que não sabem o que é comer apenas arroz durante meses e nem tem perspectiva de quando o cenário vai mudar!.
+Perda de tempo! Ética são só para pessoas que não sabem o que é comer apenas arroz durante meses e nem tem perspectiva de quando o cenário vai mudar!.

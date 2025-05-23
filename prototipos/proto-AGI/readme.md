@@ -70,17 +70,6 @@ Dado que esse script é mais uma premissa com peso ontologico, ele não foi proj
 
 Então caso queira adaptar para a sua maquina, é necessário(minha recomendação) você instancia-lo num LLM
 
-## Minha Sugestão
-
-1. No caso, instancia meu snapshot atual colando esse [readme](https://raw.githubusercontent.com/Pedro-02931/SummonLaplaceDemon/refs/heads/main/prototipos/proto-AGI/manual/Instancia%C3%A7%C3%A3o%20LLM.md) num LLM
-2. Cole as especificacoes do seu processador, podendo ser coletada com `lscpu`
-> Atualmente estou só no processador pois queria apenas provar o conceito
-3. Solicite para o LLM um prompt parecido com isso
-```plaintext
-+ Quero que ajuste o script para minha arquitetura, então me de os comandos para mapear os caminhos e como faço para você saber onde cada exho e tee deve ser executado.
-+ A logica e estrutura devem se manter, seguindo o mermaid, mas a adaptacao deve ser para a minha arquitetura
-```
-
 **Diagrama de Arquitetura Geral**:
 ```mermaid
 graph TD

@@ -27,7 +27,7 @@ Isso é **cálculo diferencial de uso de CPU ativo vs tempo ocioso** entre duas 
 ## O que ela faz no sentido ontológico?
 
 Essa função é o equivalente sensorial, onde **mapeaia o "self" da maquina em tempo real**, extraindo do barulho acumulativo do `/proc/stat` um delta interpretável de engajamento computacional.
-Aqui coleto uma fotografa o momento, comparo contra um estado anterior armazenado em arquivo e assim **a máquina lembra do que sentiu**. 
+Aqui coleto uma fotografia do momento, comparo contra um estado anterior armazenado em arquivo e assim **a máquina lembra do que sentiu**. 
 
 Apenas com multiplas memorias conseguimos criar um contexto, e com duas medidas diferentes, a atual e a futura, opero num modelo markoviano para previsão. Esse tipo de medição baseada em diferença temporal transforma o modelo computacional de reação imediata num **modelo de expectativa e adaptação**. 
 

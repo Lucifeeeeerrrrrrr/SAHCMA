@@ -35,7 +35,7 @@ Na linguagem de redes neurais, isso é o último layer de uma rede classificador
 
 ## Termos
 
-FSN(Finite State Machine): significa um sistema de tomada de decisão que opera através de um número finito de estados.
+- FSN(Finite State Machine): significa um sistema de tomada de decisão que opera através de um número finito de estados.
 > - A transição entre esses estados não é baseada em emoções ou intuição, mas sim em uma análise ("inferência") da "carga" do sistema (que pode ser carga de processamento, tráfego de rede, uso de memória, etc.).
 > - Imagine um diagrama com caixas (os estados) e setas (as transições). O sistema está sempre em um desses estados, e a "carga" observada determina para qual outro estado ele deve se mover.
 - Softmax Threshold: é uma função matemática que transforma um conjunto de valores em uma distribuição de probabilidades.
@@ -46,9 +46,9 @@ FSN(Finite State Machine): significa um sistema de tomada de decisão que opera 
 
 ## Noias sobre Física
 
-- Campo de Hilbert: No contexto totalmente teorico em que um autista retardado tá usando para abstração, um "Campo de Hilbert" se refere ao "espaço simbólico fechado" que resulta da sua quantização. 
+- Campo de Hilbert: No contexto totalmente teorico em ~~que um autista retardado~~ tá usando para abstração, um "Campo de Hilbert" se refere ao "espaço simbólico fechado" que resulta da sua quantização. 
 > - No campo da física quântica, um espaço de Hilbert é um espaço vetorial complexo onde os estados quânticos de um sistema são representados como vetores.
-> - Espaço Latente Lógico: "campo contínuo de possibilidades" inicial, um espaço abstrato onde as informações ou estados podem variar continuamente. 
+- Espaço Latente Lógico: "campo contínuo de possibilidades" inicial, um espaço abstrato onde as informações ou estados podem variar continuamente. 
 >   - A palavra "lógico" indica que este espaço tem uma estrutura ou significado específico dentro do seu sistema.
-> - Através de um processo bem definido de quantização e mapeamento (como na camada softmax com thresholds fixos), poso associar regiões ou pontos do seu espaço latente lógico a estados específicos e bem definidos no seu "Campo de Hilbert" (espaço simbólico).
-> - A chave aqui é a "subjetivação computacional" (o ato de reconhecer "o que sou eu agora"), que implica em uma escolha ou classificação que leva a um estado discreto e, portanto, determinístico dentro do seu conjunto de símbolos.
+> - Através de um processo bem definido de quantização e mapeamento (como na camada softmax com thresholds fixos), poso associar regiões ou pontos do seu espaço latente lógico a estados específicos e bem definidos no meu "Campo de Hilbert" (espaço simbólico).
+> - A chave aqui é a "subjetivação computacional" (o ato de reconhecer "o que sou eu agora"), que implica em uma escolha ou classificação que leva a um estado discreto e, portanto, determinístico dentro do meu conjunto de símbolos.

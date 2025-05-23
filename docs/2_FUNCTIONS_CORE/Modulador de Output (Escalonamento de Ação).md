@@ -29,13 +29,13 @@ Na prática, é uma função de ativação modulada — um tipo de saída onde o
 
 ## Termos
 
-RL(Reinforcement Learning): é um paradigma de aprendizado de máquina onde um agente (um programa de computador) aprende a tomar decisões em um ambiente para maximizar uma recompensa cumulativa.
+- RL(Reinforcement Learning): é um paradigma de aprendizado de máquina onde um agente (um programa de computador) aprende a tomar decisões em um ambiente para maximizar uma recompensa cumulativa.
 > - O agente interage com o ambiente, realiza ações e recebe feedback na forma de recompensas ou penalidades.
 >   - Aqui, se o sistema acertou, não hove variacões bruscas, caso tenha errado, houve variações e é penalizado levando mais tempo para se reativar
-Exploração vs. Explotação: é um dilema fundamental em RL que se refere à decisão que o agente deve tomar em um determinado momento: 
+- Exploração vs. Explotação: é um dilema fundamental em RL que se refere à decisão que o agente deve tomar em um determinado momento: 
     - Exploração (Exploration): O agente experimenta novas ações ou explora partes desconhecidas do ambiente na esperança de descobrir ações que levem a recompensas maiores no futuro. É como tentar caminhos diferentes em um labirinto.
     - Explotação (Exploitation): O agente usa o conhecimento que já possui para tomar as ações que ele acredita serem as melhores para obter a maior recompensa imediata. É como seguir o caminho que você já sabe que leva à saída do labirinto.
 > - Dado que as configurações são bem documentadas e seguem logica solida(varios threads e algortimos extremamente levez para ZRAM fazem sentidos quando a CPU está sobrecarregada, mas ociosa algoritmos pesados para reduzir trabalho da RAM), não é necessário exploração
-Entropia: é uma medida da incerteza ou aleatoriedade de um sistema. Em RL, a entropia do modelo pode ser usada para medir a incerteza sobre a melhor ação a ser tomada.
+- Entropia: é uma medida da incerteza ou aleatoriedade de um sistema. Em RL, a entropia do modelo pode ser usada para medir a incerteza sobre a melhor ação a ser tomada.
 > - Alta entropia: Significa que o modelo tem uma grande probabilidade de escolher ações diferentes, mesmo que não sejam as consideradas ótimas com base no conhecimento atual. Isso geralmente está associado a uma maior exploração. O agente está "mais aberto" a tentar coisas novas.
 > - Baixa entropia: Significa que o modelo tende a escolher as ações que ele acredita serem as melhores com base no seu aprendizado prévio. Isso está mais ligado à explotação. O agente está mais "confiante" nas suas escolhas, que é o caso das lookups que deixei pré-definidas.

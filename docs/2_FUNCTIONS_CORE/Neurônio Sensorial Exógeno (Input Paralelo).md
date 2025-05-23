@@ -13,7 +13,7 @@ Consulta direta de sensores térmicos via `lm-sensors`.
 
 ## Como Funciona
 
-A decisão de retornar um fallback de 40 graus se não houver leitura é pragmática, mas também simbólica: mesmo sem feedback do sensor, a máquina simula temperatura pra garantir que não quebre o programa.
+A decisão de retornar um fallback de 40 graus se não houver. A leitura é pragmática, mas também simbólica: mesmo sem feedback do sensor, a máquina simula temperatura pra garantir que não quebre o programa.
 > Se a PORRA do `lm-sensor` não estiver instalada, o script chuta a temperatura pra 40°C e segue como se nada tivesse acontecido. É o equivalente a dirigir bêbado com fé em Deus, cofesso, mas foi só uma tentativa kkkkk.
 
 ## Relação com Redes Neurais

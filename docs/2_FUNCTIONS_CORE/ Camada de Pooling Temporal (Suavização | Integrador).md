@@ -21,8 +21,7 @@ Implementação literal de **buffer circular com agregação por média aritmét
 
 Aqui implementei para resolver o problema de medidas, dado que o processador oscila em função de chamadas, e para evitar picos, tipo, ao abrir um programa, foi necessário implementar uma função de suavisação através de um histograma de frequencia com um limite definido.
 
-Os valores são salvos em um arquivo temporário, e a média é calculada a cada nova leitura, e no caso, fiz de forma emperica e o melhor valor para minha situação foi 5, mas há um valor escalável, tipo, valores mais altos são mais devagares de transição, menores são frenéticos.
-faz_o_urro é basicamente um SQLite de pobre armazenando média móvel em arquivo de texto. 
+Os valores são salvos em um arquivo temporário, e a média é calculada a cada nova leitura, e no caso, fiz de forma emperica e o melhor valor para minha situação foi 5, mas há um valor escalável, tipo, valores mais altos são mais devagares de transição, menores são frenéticos, sendo basicamente um SQLite de pobre armazenando média móvel em arquivo de texto. 
 > Confesso que é DEPRIMENTE, mas fazer o que? ¯\_(ツ)_/¯.
 
 ## Analogia com NN

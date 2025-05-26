@@ -14,60 +14,67 @@ initialize_directories() {
     [[ -f "$TREND_LOG" ]] || touch "$TREND_LOG"
 }
 
-get_temp() {  
-    local temp_raw  
-    temp_raw=$(sensors 2>/dev/null | grep -m1 'Package id 0' | awk '{print $4}' | tr -d '+°C' 2>/dev/null)  
-    echo "${temp_raw:-40}"  
-}  
+get_temp() {
+    local temp_raw
+    temp_raw=$(sensors 2>/dev/null | awk '
+        /[0-9]+\.[0-9]+°C/ {
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /\+?[0-9]+\.[0-9]+°C/) {
+                    gsub(/[^0-9.]/, "", $i);
+                    print $i;
+                    exit
+                }
+            }
+        }' | cut -d'.' -f1)
 
-get_loadavg() {  
-    uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'  
-}  
+    echo "${temp_raw:-40}"
+}
 
-get_load_variance() {  
-    local l1 l5 delta  
-    read l1 l5 _ < <(get_loadavg)  
-    delta=$(echo "$l1 - $l5" | bc -l)  
-    echo "${delta#-}"  
-}  
+get_loadavg() {
+    uptime | awk -F'load average: ' '{print $2}' | awk -F', ' '{print $1, $2, $3}'
+}
+
+get_load_variance() {
+    read l1 l5 _ < <(get_loadavg)
+    local delta=$(echo "$l1 - $l5" | bc -l)
+    delta=$(echo "$delta" | sed 's/-//')
+    echo "$delta"
+}
+
+calc_dynamic_cooldown() {
+    local delta_load=$(get_load_variance)
+    local temp=$(get_temp)
+    local cd=7
+    if [[ "$temp" -ge 75 ]]; then
+        cd=$((cd + 5))
+    elif [[ "$temp" -ge 60 ]]; then
+        cd=$((cd + 3))
+    fi
+    awk -v delta="$delta_load" -v cd="$cd" 'BEGIN {
+        if (delta > 1.5) cd += 4;
+        else if (delta > 0.8) cd += 2;
+        else if (delta < 0.3) cd -= 2;
+        if (cd < 3) cd = 3;
+        print int(cd);
+    }'
+}
 
 calc_impact_cooldown() {
     local base_cd=$(calc_dynamic_cooldown)
-    local impact_factor="$1"
-    echo $(awk -v cd="$base_cd" -v factor="$impact_factor" 'BEGIN {print int(cd * factor)}')
+    local factor="$1"
+    awk -v cd="$base_cd" -v f="$factor" 'BEGIN { print int(cd * f) }'
 }
 
-calc_dynamic_cooldown() {  
-    local delta_load=$(get_load_variance)  
-    local temp=$(get_temp)  
-    local cd=7  
-
-    if (( temp >= 75 )); then  
-        cd=$((cd + 5))  
-    elif (( temp >= 60 )); then  
-        cd=$((cd + 3))  
-    fi  
-
-    if (( $(echo "$delta_load > 1.5" | bc -l) )); then  
-        cd=$((cd + 4))  
-    elif (( $(echo "$delta_load > 0.8" | bc -l) )); then  
-        cd=$((cd + 2))  
-    elif (( $(echo "$delta_load < 0.3" | bc -l) )); then  
-        cd=$((cd - 2))  
-    fi  
-
-    (( cd < 3 )) && cd=3  
-    echo "$cd"  
-}  
-
 faz_o_urro() {
-    local new_val="$1" history_arr=() sum=0 avg=0
+    local new_val="$1"
+    local history_arr=()
+    local sum=0 avg=0
     [[ -f "$HISTORY_FILE" ]] && mapfile -t history_arr < "$HISTORY_FILE"
     history_arr+=("$new_val")
     (( ${#history_arr[@]} > MAX_HISTORY )) && history_arr=("${history_arr[@]: -$MAX_HISTORY}")
     for val in "${history_arr[@]}"; do sum=$((sum + val)); done
     avg=$((sum / ${#history_arr[@]}))
-    printf "%s\n" "${history_arr[@]}" > "$HISTORY_FILE"
+    printf "%s\n" "${history_arr[@]}" | sudo tee "$HISTORY_FILE" >/dev/null
     echo "$avg"
 }
 
@@ -76,9 +83,9 @@ get_cpu_usage() {
     local cpu_line prev_line usage=0
     cpu_line=$(grep -E '^cpu ' /proc/stat)
     prev_line=$(cat "$stat_hist_file" 2>/dev/null || echo "$cpu_line")
-    echo "$cpu_line" > "$stat_hist_file"
-    read -r _ pu pn ps pi _ _ _ _ _ <<< "$prev_line"
-    read -r _ cu cn cs ci _ _ _ _ _ <<< "$cpu_line"
+    echo "$cpu_line" | sudo tee "$stat_hist_file" >/dev/null
+    read -r _ pu pn ps pi _ <<< "$prev_line"
+    read -r _ cu cn cs ci _ <<< "$cpu_line"
     local prev_total=$((pu + pn + ps + pi))
     local curr_total=$((cu + cn + cs + ci))
     local diff_idle=$((ci - pi))
@@ -98,60 +105,41 @@ determine_policy_key_from_avg() {
     echo "$key"
 }
 
-apply_cpu_governor() {  
-    local key="$1"  
-    declare -A MAP=(  
-        ["000"]="ondemand"  
-        ["005"]="ondemand"  
-        ["020"]="ondemand"  
-        ["040"]="ondemand"  
-        ["060"]="performance"  
-        ["080"]="performance"  
-        ["100"]="performance"  
-    )  
-    local cpu_gov="${MAP[$key]:-ondemand}"  
-    local last_gov_file="${BASE_DIR}/last_gov"  
-    local cooldown_file="${BASE_DIR}/gov_cooldown"  
-    local available_govs_file="/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"  
-    local now=$(date +%s)  
+apply_cpu_governor() {
+    local key="$1"
+    declare -A MAP=(
+        ["000"]="powersave"
+        ["005"]="powersave"
+        ["020"]="powersave"
+        ["040"]="powersave"
+        ["060"]="performance"
+        ["080"]="performance"
+        ["100"]="performance"
+    )
+    local cpu_gov="${MAP[$key]:-powersave}"
+    local last_gov_file="${BASE_DIR}/last_gov"
+    local cooldown_file="${BASE_DIR}/gov_cooldown"
+    local now=$(date +%s)
 
-    is_valid_governor() {  
-        grep -qw "$cpu_gov" "$available_govs_file" || {  
-            echo "✖ Governor '$cpu_gov' não suportado. Disponíveis: $(cat "$available_govs_file")" >&2  
-            return 1  
-        }  
-    }  
+    local last_gov="none"
+    [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")
 
-    set_governor_all_cpus() {  
-        local gov="$1"  
-        for cpu_dir in /sys/devices/system/cpu/cpu[0-9]*; do  
-            [[ -w "$cpu_dir/cpufreq/scaling_governor" ]] && echo "$gov" > "$cpu_dir/cpufreq/scaling_governor" 2>/dev/null || 
-            echo "  ‼ Permissão negada em $cpu_dir" >&2  
-        done  
-    }  
+    local last_change=0
+    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
+    local delta=$((now - last_change))
+    local dynamic_cd=$(calc_impact_cooldown 1.0)
 
-    is_valid_governor "$cpu_gov" || return 1  
-
-    local last_gov="none"  
-    [[ -f "$last_gov_file" ]] && last_gov=$(cat "$last_gov_file")  
-
-    local last_change=0  
-    [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)  
-    local delta=$((now - last_change))  
-    local dynamic_cd=$(calc_impact_cooldown 1.0)  # Fator 1.0 para mudanças de baixo impacto
-
-    echo "⚙ Governor: Key=${key} | Mapeado=${cpu_gov} | Último=${last_gov} | CD=${dynamic_cd}s"  
-
-    if [[ "$cpu_gov" != "$last_gov" ]] && (( delta >= dynamic_cd )); then  
-        echo "  🔄 Aplicando governor..."  
-        set_governor_all_cpus "$cpu_gov"  
-        echo "$cpu_gov" > "$last_gov_file"  
-        touch "$cooldown_file"  
-    else  
-        echo "  ⚠ Inação: Governor igual? $( [[ "$cpu_gov" == "$last_gov" ]] && echo "SIM" || echo "NÃO" )"  
-        echo "    - Delta cooldown: ${delta}s/${dynamic_cd}s"  
-    fi  
-}  
+    if [[ "$cpu_gov" != "$last_gov" && "$delta" -ge "$dynamic_cd" ]]; then
+        echo "🔄 Aplicando governor $cpu_gov"
+        for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+            echo "$cpu_gov" | sudo tee "$policy/scaling_governor" >/dev/null
+        done
+        echo "$cpu_gov" | sudo tee "$last_gov_file" >/dev/null
+        sudo touch "$cooldown_file"
+    else
+        echo "⚠ Governor atual ou cooldown ativo: $cpu_gov (${delta}s/${dynamic_cd}s)"
+    fi
+}
 
 apply_turbo_boost() {
     local key="$1"

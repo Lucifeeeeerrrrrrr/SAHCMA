@@ -138,7 +138,7 @@ apply_cpu_governor() {
     local delta=$((now - last_change))
     local dynamic_cd=$(calc_impact_cooldown 1.0)
 
-    if [[ "$cpu_gov" != "$last_gov" && "$delta" -ge "$dynamic_cd" ]]; then
+    if [[ "$cpu_gov" != "$last_gov" ]]; then
         echo "🔄 Aplicando governor $cpu_gov"
         for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             echo "$cpu_gov" | sudo tee "$policy/scaling_governor" >/dev/null
@@ -165,11 +165,11 @@ apply_turbo_boost() {
     delta=$((now - last_change))
 
     if [[ -f "$boost_path" ]]; then
-        if [[ "$gov" == "performance" && "$last" != "1" && "$delta" -ge "$dynamic_cd" ]]; then
+        if [[ "$gov" == "performance" && "$last" != "1" ]]; then
             echo 1 > "$boost_path" && echo "1" > "$boost_file"
             touch "$cooldown_file"
             echo "🚀 Turbo Boost ativado"
-        elif [[ "$gov" != "performance" && "$last" != "0" && "$delta" -ge "$dynamic_cd" ]]; then
+        elif [[ "$gov" != "performance" && "$last" != "0" ]]; then
             echo 0 > "$boost_path" && echo "0" > "$boost_file"
             touch "$cooldown_file"
             echo "💤 Turbo Boost desativado"
@@ -180,11 +180,11 @@ apply_turbo_boost() {
 apply_tdp_profile() {
     local key="$1" tdp_pair
     declare -A MAP=(
-        ["000"]="0 0" ["005"]="$((MAX_TDP * 15 / 100)) $((MAX_TDP * 0))" 
-        ["020"]="$((MAX_TDP * 30 / 100)) $((MAX_TDP * 10 / 100))" 
-        ["040"]="$((MAX_TDP * 45 / 100)) $((MAX_TDP * 20 / 100))" 
-        ["060"]="$((MAX_TDP * 60 / 100)) $((MAX_TDP * 30 / 100))" 
-        ["080"]="$((MAX_TDP * 75 / 100)) $((MAX_TDP * 40 / 100))" 
+        ["000"]="3 0" ["005"]="$((MAX_TDP * 30 / 100)) $((MAX_TDP * 0))" 
+        ["020"]="$((MAX_TDP * 50 / 100)) $((MAX_TDP * 10 / 100))" 
+        ["040"]="$((MAX_TDP * 70 / 100)) $((MAX_TDP * 20 / 100))" 
+        ["060"]="$((MAX_TDP * 80 / 100)) $((MAX_TDP * 30 / 100))" 
+        ["080"]="$((MAX_TDP * 90 / 100)) $((MAX_TDP * 40 / 100))" 
         ["100"]="$MAX_TDP $((MAX_TDP * 50 / 100))"
     )
     tdp_pair="${MAP[$key]}"
@@ -201,7 +201,7 @@ apply_tdp_profile() {
 
     echo "🌡  Temp=$(get_temp)°C | ΔCarga=$(get_load_variance) | Cooldown=${dynamic_cd}s"
     if [[ "$current_power" != "$last_power" ]]; then
-        if (( delta >= dynamic_cd )); then
+        if (( 1 == 1 )); then
             echo "⚡ Aplicando TDP: MIN=${target_min}W | MAX=${target_max}W"
             echo $((target_min * 1000000)) > /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null
             echo $((target_max * 1000000)) > /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null
@@ -236,7 +236,7 @@ apply_zram_config() {
         [[ -f "$cooldown_file" ]] && last_change=$(date -r "$cooldown_file" +%s)
         delta=$((now - last_change))
 
-        if (( delta >= dynamic_cd )); then
+        if (( 1 == 1 )); then
             echo "🔧 Reconfigurando ZRAM: Streams=$streams Alg=$alg"
             for dev in /dev/zram*; do swapoff "$dev" 2>/dev/null; done
             sleep 0.3
@@ -265,7 +265,7 @@ apply_all() {
     local policy_key=$(determine_policy_key_from_avg "$avg_usage")
     echo -e "\n🔄 $(date) | Uso: ${current_usage}% | Média: ${avg_usage}% | Perfil: ${policy_key}%"
     apply_cpu_governor "$policy_key"
-    apply_turbo_boost "$policy_key"
+    #apply_turbo_boost "$policy_key"
     apply_tdp_profile "$policy_key"
     apply_zram_config "$policy_key"
 }

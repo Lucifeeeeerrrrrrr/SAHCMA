@@ -1,4 +1,13 @@
 #!/bin/bash
+
+echo "🚀 Instalando daemon bayesiano fodástico..."
+
+BIN_PATH="/usr/local/bin/bayes_opt.sh"
+SERVICE_PATH="/etc/systemd/system/bayes_opt.service"
+
+# 1. Script principal (o bicho feio todo)
+cat <<'EOF' > "$BIN_PATH"
+#!/bin/bash
 # Script ainda esta meio cagado, caso queira contribuir, que deus te abençoe, ou algum orixa aleatorio por ai
 BASE_DIR="/etc/bayes_mem"
 LOG_DIR="/var/log/bayes_mem"
@@ -274,3 +283,35 @@ main() {
 }
 
 main
+EOF
+
+chmod +x "$BIN_PATH"
+
+# 2. Service systemd
+cat <<EOF > "$SERVICE_PATH"
+[Unit]
+Description=Daemon Bayesiano de Otimização de CPU e ZRAM
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=$BIN_PATH
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "🔧 Recarregando systemd..."
+systemctl daemon-reexec
+systemctl daemon-reload
+
+echo "✅ Habilitando serviço no boot..."
+systemctl enable --now bayes_opt.service
+
+echo "📡 Status do serviço:"
+systemctl status bayes_opt.service --no-pager
+
